@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06121b">
+<title>AQUA NEXUS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- full-page hazard effects (do not block clicks) -->
+<canvas id="rainCv" class="fx" aria-hidden="true"></canvas>
+<div id="storm" class="fx" aria-hidden="true"></div>
+<div id="bolt" class="fx" aria-hidden="true"></div>
+<div id="flood" aria-hidden="true"></div>
+<div id="vig" class="fx" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 40 40" aria-hidden="true">
+        <defs><linearGradient id="lgG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2ec5e6"/><stop offset="1" stop-color="#3ee6b7"/></linearGradient></defs>
+        <circle cx="20" cy="20" r="18.5" fill="none" stroke="url(#lgG)" stroke-width="2.5"/>
+        <path d="M20 7c0 0-7 8-7 13a7 7 0 0 0 14 0c0-5-7-13-7-13z" fill="url(#lgG)"/>
+        <path d="M5 27c3 0 3-2 6-2s3 2 6 2 3-2 6-2 3 2 6 2 3-2 6-2" fill="none" stroke="#e6f3f8" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div><h1>AQUA NEXUS</h1><small class="num" id="meta">Floating Water Monitoring System</small></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="pill conn" id="pill"><span class="dot"></span><span class="ptxt" id="connTxt">Connecting…</span></div>
+    <button class="iconbtn" id="gear" aria-label="Settings" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+  <div class="sheet" id="sheet"><div>
+    <form id="settings">
+      <div class="field"><label for="boatAddr">Boat address (ESP32)</label>
+        <input id="boatAddr" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="192.168.4.1"></div>
+      <button class="btn" type="submit">Connect</button>
+      <button class="btn ghost" type="button" id="clearHist">Clear trends</button>
+      <p class="hint">Tip: open with <b>?boat=192.168.1.50</b> in the URL to set the address directly.</p>
+    </form>
+  </div></div>
+  <nav class="tabs" role="tablist">
+    <button type="button" class="active" data-pane="mon" role="tab">Monitor</button>
+    <button type="button" data-pane="ctl" role="tab">Control</button>
+  </nav>
+</header>
+
+<main>
+  <div class="hazards" id="hazards"></div>
+  <div class="alerts ok" id="alerts"><div class="ttl" id="al-ttl">Waiting for data…</div><div class="list" id="al-list"></div></div>
+
+<div class="pane active" id="pane-mon">
+  <!-- ===== Water quality ===== -->
+  <section class="card wq" id="wq">
+    <div class="gauge">
+      <svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52" fill="none" stroke-width="11"/>
+        <circle class="val" id="wq-arc" cx="60" cy="60" r="52" fill="none" stroke-width="11" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/></svg>
+      <div class="gn"><b id="wq-score">--</b><span>/ 100</span></div>
+    </div>
+    <div>
+      <div class="wq-lbl">Water Quality</div>
+      <div class="wq-rt" id="wq-rt">Waiting…</div>
+      <div class="wqp" id="wq-p"></div>
+    </div>
+  </section>
+
+  <!-- ===== Digital twin ===== -->
+  <section class="card" style="--i:0">
+    <div class="twin-hd">
+      <h2>Live Digital Twin</h2>
+      <span class="chip" id="mode">—</span>
+      <span class="spacer"></span>
+      <span class="sub" id="twin-sub">Tap a numbered point to jump to its sensor</span>
+    </div>
+    <div class="twin">
+      <div class="view front">
+        <div class="vlabel">Front view · Roll</div>
+        <div class="vread"><span><em>ROLL</em><b id="rd-roll">--</b></span></div>
+        <svg id="front" viewBox="0 0 800 440" aria-label="Front view of boat with sensor positions">
+          <defs>
+            <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop id="wg0" offset="0" stop-color="#1c8fbf"/><stop id="wg1" offset="1" stop-color="#062638"/></linearGradient>
+            <clipPath id="clipF"><rect x="-14" y="-88" width="28" height="176" rx="6"/></clipPath>
+          </defs>
+          <rect x="0" y="0" width="800" height="300" fill="#0a2231"/>
+          <g id="rainFx" opacity="0"></g>
+          <g class="zl">
+            <text x="16" y="120" fill="var(--z-top)">TOP DECK</text>
+            <text x="16" y="236" fill="var(--z-mid)">MIDDLE</text>
+            <text x="16" y="345" fill="var(--z-uw)">UNDERWATER</text>
+          </g>
+          <path class="wave" style="--wl:120px;--t:7s" fill="url(#wg)" opacity=".45" d=""/>
+          <g transform="translate(400 212)"><g id="rollG">
+            <!-- left wheel -->
+            <rect x="-261" y="16" width="36" height="8" fill="#6b7a85"/>
+            <g transform="translate(-275 22)">
+              <rect x="-14" y="-88" width="28" height="176" rx="6" fill="#0e1419" stroke="#3c4d59" stroke-width="1.5"/>
+              <g clip-path="url(#clipF)"><g id="bladeFL"></g></g>
+              <rect x="-18" y="-6" width="36" height="12" rx="3" fill="#2a3a46"/>
+            </g>
+            <!-- right wheel -->
+            <rect x="225" y="16" width="36" height="8" fill="#6b7a85"/>
+            <g transform="translate(275 22)">
+              <rect x="-14" y="-88" width="28" height="176" rx="6" fill="#0e1419" stroke="#3c4d59" stroke-width="1.5"/>
+              <g clip-path="url(#clipF)"><g id="bladeFR"></g></g>
+              <rect x="-18" y="-6" width="36" height="12" rx="3" fill="#2a3a46"/>
+            </g>
+            <!-- motors -->
+            <rect x="-228" y="2" width="45" height="38" rx="3" fill="#e8c22e"/><rect x="-240" y="6" width="14" height="30" rx="5" fill="#111"/>
+            <rect x="183" y="2" width="45" height="38" rx="3" fill="#e8c22e"/><rect x="226" y="6" width="14" height="30" rx="5" fill="#111"/>
+            <!-- plates & standoffs -->
+            <rect x="-232" y="40" width="464" height="10" rx="3" fill="#232a31" stroke="#3a4852"/>
+            <rect x="-196" y="-32" width="12" height="72" fill="#c9302c"/><rect x="-6" y="-32" width="12" height="72" fill="#c9302c"/><rect x="170" y="-32" width="12" height="72" fill="#c9302c"/>
+            <!-- battery -->
+            <rect x="-130" y="2" width="110" height="38" rx="5" fill="#2a3139" stroke="#48545e"/>
+            <rect id="battFill" x="-124" y="8" width="0" height="26" rx="3" fill="#46d68c" opacity=".85"/>
+            <rect x="-20" y="14" width="5" height="14" rx="1" fill="#48545e"/>
+            <!-- motor driver -->
+            <rect x="12" y="14" width="80" height="26" rx="3" fill="#b3261e"/>
+            <rect x="60" y="6" width="24" height="10" rx="2" fill="#1f4fbf"/>
+            <rect x="22" y="20" width="26" height="14" rx="2" fill="#151515"/>
+            <!-- water level (side) -->
+            <rect x="238" y="-28" width="10" height="98" rx="2" fill="#b3261e"/>
+            <path d="M241 -20V64M245 -20V64" stroke="#e8c47a" stroke-width="1"/>
+            <!-- top plate -->
+            <rect x="-244" y="-42" width="488" height="10" rx="3" fill="#e8edf0"/>
+            <!-- gas -->
+            <rect x="-205" y="-70" width="30" height="28" rx="4" fill="#9aa4ad"/>
+            <rect x="-201" y="-74" width="22" height="6" rx="2" fill="#c8ced3"/>
+            <g id="gasFx"><circle class="gasfx" cx="-196" cy="-80" r="3" fill="#b9c6cf"/><circle class="gasfx" cx="-186" cy="-80" r="2.5" fill="#b9c6cf" style="animation-delay:.7s"/><circle class="gasfx" cx="-191" cy="-78" r="2" fill="#b9c6cf" style="animation-delay:1.3s"/></g>
+            <!-- LCD -->
+            <rect x="-120" y="-84" width="132" height="42" rx="4" fill="#1d4f8a"/>
+            <rect x="-113" y="-78" width="118" height="30" rx="2" fill="#7fd35b"/>
+            <text id="lcd1" x="-109" y="-66" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="10.5" font-weight="700" fill="#123810">AQUA NEXUS</text>
+            <text id="lcd2" x="-109" y="-53" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="10.5" font-weight="700" fill="#123810">Connecting..</text>
+            <!-- ESP32 -->
+            <rect x="40" y="-58" width="60" height="16" rx="2" fill="#15191d" stroke="#394650"/>
+            <rect x="44" y="-56" width="30" height="12" rx="1" fill="#8d96a0"/>
+            <path d="M80 -52h14" stroke="#d4a64a" stroke-width="2"/>
+            <circle id="espLed" cx="95" cy="-47" r="2" fill="#46d68c"/>
+            <!-- Nano -->
+            <rect x="110" y="-54" width="44" height="12" rx="2" fill="#1a4fa0"/>
+            <rect x="124" y="-52" width="14" height="8" rx="1" fill="#111"/>
+            <!-- rain -->
+            <rect x="178" y="-50" width="56" height="8" rx="1" fill="#1f6b3a"/>
+            <path d="M182 -46h48" stroke="#d9c07a" stroke-width="1.2" stroke-dasharray="4 3"/>
+            <!-- underwater probes -->
+            <rect x="-92" y="50" width="10" height="92" rx="5" fill="#cfd6dc"/>
+            <circle cx="-87" cy="146" r="8" fill="rgba(210,235,245,.75)" stroke="#cfd6dc"/>
+            <path d="M-10 50V124" stroke="#1a1a1a" stroke-width="3"/>
+            <rect x="-15" y="120" width="10" height="30" rx="4" fill="#b8c1c8"/>
+            <path d="M60 50h34v60h-10v-16h-14v16h-10z" fill="#2b2f35" stroke="#48545e"/>
+            <g fill="#bfe8f7">
+              <circle class="bub" cx="-87" cy="140" r="3" style="--t:2.8s"/><circle class="bub" cx="-82" cy="146" r="2" style="--t:3.3s;animation-delay:1s"/>
+              <circle class="bub" cx="-10" cy="146" r="2.5" style="--t:3s;animation-delay:.5s"/><circle class="bub" cx="-6" cy="140" r="1.8" style="--t:2.5s;animation-delay:1.6s"/>
+              <circle class="bub" cx="77" cy="108" r="2.5" style="--t:2.4s;animation-delay:.9s"/>
+            </g>
+          </g></g>
+          <path class="wave" style="--wl:90px;--t:4.5s" fill="url(#wg)" opacity=".62" d=""/>
+          <path class="wave" style="--wl:90px;--t:4.5s" fill="none" stroke="#7fdcf5" stroke-width="1.5" opacity=".7" d=""/>
+          <g transform="translate(400 212)"><g id="hsG"></g></g>
+        </svg>
+      </div>
+      <div class="side">
+        <div class="view">
+          <div class="vlabel">Top view · Heading</div>
+          <div class="vread"><span><em>YAW</em><b id="rd-yaw">--</b></span></div>
+          <svg id="topv" viewBox="-150 -150 300 300" aria-label="Top view heading and drive">
+            <circle r="140" fill="rgba(46,197,230,.04)" stroke="var(--line2)" stroke-width="1.5"/>
+            <g id="cticks"></g>
+            <g font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central">
+              <text y="-122" fill="#ff6b6b">N</text><text x="122" fill="#8fb0c2">E</text><text y="122" fill="#8fb0c2">S</text><text x="-122" fill="#8fb0c2">W</text>
+            </g>
+            <path d="M0-138l-7-11h14z" fill="var(--accent)"/>
+            <g id="yawG">
+              <g id="mv" opacity="0"><path d="M0-86V-118M-9-108L0-120 9-108" fill="none" stroke="var(--accent2)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></g>
+              <clipPath id="clipT"><rect x="-9" y="-50" width="18" height="100" rx="4"/></clipPath>
+              <rect x="-88" y="-4" width="12" height="8" fill="#6b7a85"/><rect x="76" y="-4" width="12" height="8" fill="#6b7a85"/>
+              <g transform="translate(-97 0)"><rect x="-9" y="-50" width="18" height="100" rx="4" fill="#0e1419" stroke="#3c4d59"/><g clip-path="url(#clipT)"><g id="bladeTL"></g></g></g>
+              <g transform="translate(97 0)"><rect x="-9" y="-50" width="18" height="100" rx="4" fill="#0e1419" stroke="#3c4d59"/><g clip-path="url(#clipT)"><g id="bladeTR"></g></g></g>
+              <rect x="-80" y="-12" width="22" height="24" rx="3" fill="#e8c22e"/><rect x="58" y="-12" width="22" height="24" rx="3" fill="#e8c22e"/>
+              <circle r="76" fill="#e8edf0" stroke="#b9c3ca" stroke-width="2"/>
+              <path d="M-40 8A46 46 0 0 0 40 8" fill="none" stroke="#1a2530" stroke-width="7" stroke-linecap="round"/>
+              <circle cx="28" cy="-22" r="5" fill="#1a2530"/>
+              <text y="-40" text-anchor="middle" font-size="12" font-weight="800" letter-spacing="1.5" fill="#1a2530">AQUA NEXUS</text>
+              <path d="M0-76l-8 12h16z" fill="var(--accent)"/>
+              <text x="-97" y="64" text-anchor="middle" font-size="11" font-weight="700" fill="#8fb0c2">L</text>
+              <text x="97" y="64" text-anchor="middle" font-size="11" font-weight="700" fill="#8fb0c2">R</text>
+            </g>
+          </svg>
+        </div>
+        <div class="view">
+          <div class="vlabel">Side view · Pitch</div>
+          <div class="vread"><span><em>PITCH</em><b id="rd-pitch">--</b></span></div>
+          <svg id="sidev" viewBox="0 0 300 190" aria-label="Side view pitch">
+            <path class="wave" style="--wl:60px;--t:6s" fill="url(#wg)" opacity=".45" d=""/>
+            <g transform="translate(150 95)"><g id="pitchG">
+              <rect x="-118" y="14" width="236" height="7" rx="2" fill="#232a31" stroke="#3a4852"/>
+              <rect x="-100" y="-27" width="9" height="41" fill="#c9302c"/><rect x="92" y="-27" width="9" height="41" fill="#c9302c"/>
+              <rect x="-72" y="-12" width="50" height="26" rx="3" fill="#2a3139" stroke="#48545e"/>
+              <rect x="30" y="-2" width="50" height="16" rx="2" fill="#b3261e"/>
+              <rect x="-125" y="-34" width="250" height="7" rx="2" fill="#e8edf0"/>
+              <rect x="-60" y="-50" width="60" height="16" rx="2" fill="#1d4f8a"/><rect x="-56" y="-47" width="52" height="10" fill="#7fd35b"/>
+              <rect x="-110" y="-46" width="16" height="12" rx="2" fill="#9aa4ad"/>
+              <rect x="60" y="-38" width="44" height="4" fill="#1f6b3a"/>
+              <rect x="-44" y="21" width="6" height="48" rx="3" fill="#cfd6dc"/>
+              <path d="M2 21V60" stroke="#1a1a1a" stroke-width="2.5"/><rect x="-1" y="56" width="6" height="16" rx="3" fill="#b8c1c8"/>
+              <rect x="36" y="21" width="18" height="34" rx="3" fill="#2b2f35"/>
+              <g id="wheelS" opacity=".92"></g>
+              <text x="118" y="-44" text-anchor="end" font-size="10" font-weight="800" fill="#2ec5e6" letter-spacing="1">BOW →</text>
+            </g></g>
+            <path class="wave" style="--wl:50px;--t:3.6s" fill="url(#wg)" opacity=".6" d=""/>
+            <path class="wave" style="--wl:50px;--t:3.6s" fill="none" stroke="#7fdcf5" stroke-width="1.2" opacity=".7" d=""/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="zkey">
+      <span style="--c:var(--z-top)"><i></i>Top deck</span>
+      <span style="--c:var(--z-mid)"><i></i>Middle deck</span>
+      <span style="--c:var(--z-side)"><i></i>Side</span>
+      <span style="--c:var(--z-uw)"><i></i>Underwater</span>
+    </div>
+  </section>
+
+  <!-- ===== Underwater ===== -->
+  <div class="zone" style="--c:var(--z-uw)"><i></i><h2>Underwater · Water Quality</h2><p>Probes below the hull</p></div>
+  <div class="grid" style="--c:var(--z-uw)">
+    <section class="card" id="c-ph">
+      <div class="hd"><span class="no">1</span><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7s-6 6.6-6 11.3a6 6 0 0 0 12 0c0-4.7-6-11.3-6-11.3z"/></svg></span><span class="name">pH</span><span class="chip" id="ph-st">—</span></div>
+      <div class="big" id="ph-v">--</div>
+      <div class="scalebar ph"><b id="ph-m" style="left:50%"></b></div>
+      <div class="scale"><span>0 · acidic</span><span>7</span><span>alkaline · 14</span></div>
+      <svg class="spark" id="ph-sp" viewBox="0 0 200 40" preserveAspectRatio="none"></svg>
+      <div class="sparkmeta" id="ph-sm"></div>
+    </section>
+    <section class="card" id="c-temp">
+      <div class="hd"><span class="no">2</span><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg></span><span class="name">Water Temperature</span><span class="chip" id="t-st">—</span></div>
+      <div class="big"><span id="t-v">--</span><span class="unit">°C</span></div>
+      <div class="sub" id="t-sub">&nbsp;</div>
+      <svg class="spark" id="t-sp" viewBox="0 0 200 40" preserveAspectRatio="none"></svg>
+      <div class="sparkmeta" id="t-sm"></div>
+    </section>
+    <section class="card" id="c-turb">
+      <div class="hd"><span class="no">3</span><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c2 0 2-1.5 4-1.5S8 6 10 6s2-1.5 4-1.5S16 6 18 6s2-1.5 4-1.5M2 12c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5M2 18c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5"/></svg></span><span class="name">Turbidity</span><span class="chip" id="tb-st">—</span></div>
+      <div class="big"><span id="tb-v">--</span><span class="unit">NTU</span></div>
+      <div class="scalebar tb"><b id="tb-m" style="left:0%"></b></div>
+      <div class="scale"><span>0 clear</span><span id="tb-sub">sensor -- V</span><span>200+ muddy</span></div>
+      <svg class="spark" id="tb-sp" viewBox="0 0 200 40" preserveAspectRatio="none"></svg>
+      <div class="sparkmeta" id="tb-sm"></div>
+    </section>
+  </div>
+
+  <!-- ===== Top deck ===== -->
+  <div class="zone" style="--c:var(--z-top)"><i></i><h2>Top Deck · Air & Weather</h2><p>Gas, rain, LCD, ESP32 + Nano</p></div>
+  <div class="grid" style="--c:var(--z-top)">
+    <section class="card" id="c-gas">
+      <div class="hd"><span class="no">4</span><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 4.6A2 2 0 1 1 11 8H2M12.6 19.4A2 2 0 1 0 14 16H2M17.5 8a2.5 2.5 0 1 1 2 4H2"/></svg></span><span class="name">Air / Gas</span><span class="chip" id="g-st">—</span></div>
+      <div class="rows" id="g-list"><div class="sub">Waiting…</div></div>
+    </section>
+    <section class="card" id="c-rain">
+      <div class="hd"><span class="no">5</span><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 15.2A5 5 0 0 0 18 6h-1.3A8 8 0 1 0 4 14.9M16 14v6M8 14v6M12 16v6"/></svg></span><span class="name">Rain</span><span class="chip" id="r-st">—</span></div>
+      <div class="big"><span id="r-v">--</span><span class="unit">%</span></div>
+      <div class="drops" id="r-d"></div>
+      <div class="scale"><span>dry</span><span>heavy</span></div>
+    </section>
+    <section class="card" id="c-sys">
+      <div class="hd"><span class="no">6-8</span><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></span><span class="name">Controller & Display</span><span class="chip" id="sys-st">—</span></div>
+      <div class="rows">
+        <div class="row"><span>Boards</span><span>ESP32 + Arduino Nano</span></div>
+        <div class="row"><span>Display</span><span>LCD · top deck</span></div>
+        <div class="row"><span>Latency</span><span id="sys-lat">--</span></div>
+        <div class="row"><span>Uptime</span><span id="sys-up">--</span></div>
+        <div class="row"><span>Packets</span><span id="sys-pk">0</span></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Side ===== -->
+  <div class="zone" style="--c:var(--z-side)"><i></i><h2>Side · Hull</h2><p>Water level sensor on the hull side</p></div>
+  <div class="grid" style="--c:var(--z-side)">
+    <section class="card" id="c-water">
+      <div class="hd"><span class="no">9</span><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 13c2.3 0 2.3-1.5 4.7-1.5S12 13 14.3 13s2.4-1.5 4.7-1.5"/></svg></span><span class="name">Water Level</span><span class="chip" id="w-st">—</span></div>
+      <div class="tankwrap">
+        <div class="tank" id="w-tank"><i id="w-b"></i></div>
+        <div><div class="big"><span id="w-v">--</span><span class="unit">%</span></div><div class="sub">Hull-side sensor</div></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== Navigation ===== -->
+  <div class="zone" style="--c:var(--accent)"><i></i><h2>Navigation</h2><p>Position & motion</p></div>
+  <div class="grid">
+    <section class="card" id="c-gps">
+      <div class="hd"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><span class="name">GPS</span><span class="chip" id="gps-st">—</span></div>
+      <div class="rows">
+        <div class="row"><span>Latitude</span><span id="gps-lat">--</span></div>
+        <div class="row"><span>Longitude</span><span id="gps-lng">--</span></div>
+        <div class="row"><span>Speed</span><span id="gps-spd">--</span></div>
+        <div class="row"><span>Satellites</span><span><span class="sats" id="gps-bars"><i style="height:4px"></i><i style="height:7px"></i><i style="height:10px"></i><i style="height:14px"></i></span><span id="gps-sat">--</span></span></div>
+      </div>
+      <div class="actions" id="gps-act" style="display:none">
+        <a class="btn sm" id="gps-map" href="#" target="_blank" rel="noopener">Open in Maps →</a>
+        <button class="btn ghost sm" id="gps-copy" type="button">Copy coords</button>
+      </div>
+    </section>
+    <section class="card" id="c-gyro">
+      <div class="hd"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16.2 7.8l-2.1 6.3-6.3 2.1 2.1-6.3z"/></svg></span><span class="name">Boat Motion</span><span class="chip" id="gy-st">—</span></div>
+      <div class="rows">
+        <div class="row"><span>Roll</span><span id="gy-r">--</span></div>
+        <div class="row"><span>Pitch</span><span id="gy-p">--</span></div>
+        <div class="row"><span>Yaw / heading</span><span id="gy-y">--</span></div>
+        <div class="row"><span>Direction</span><span id="gy-dir">--</span></div>
+        <div class="row"><span>Drive</span><span id="gy-drv">--</span></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===== Control ===== -->
+<div class="pane" id="pane-ctl">
+  <div class="ctl">
+    <section class="card">
+      <div class="hd"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v4M12 14v4M6 12h4M14 12h4"/></svg></span><span class="name">Drive</span><span class="chip" id="nano-st">—</span></div>
+      <div class="stat3">
+        <div><b id="cs-cmd">S</b><span>Command</span></div>
+        <div><b id="cs-l">0%</b><span>Left</span></div>
+        <div><b id="cs-r">0%</b><span>Right</span></div>
+      </div>
+      <div class="dpad" id="dpad">
+        <button type="button" class="f" data-c="F" aria-label="Forward">&#9650;<small>FORWARD</small></button>
+        <button type="button" class="l" data-c="L" aria-label="Left">&#9664;<small>LEFT</small></button>
+        <button type="button" class="s" data-c="S" aria-label="Stop">&#9632;<small>STOP</small></button>
+        <button type="button" class="r" data-c="R" aria-label="Right">&#9654;<small>RIGHT</small></button>
+        <button type="button" class="b" data-c="B" aria-label="Back">&#9660;<small>BACK</small></button>
+      </div>
+      <div class="seg" id="cmode">
+        <button type="button" class="active" data-m="hold">Hold to move</button>
+        <button type="button" data-m="tap">Tap to move</button>
+      </div>
+      <p class="hint" id="cm-hint">Boat moves while you hold a button · release = stop</p>
+    </section>
+
+    <div class="ctl-side">
+      <section class="card">
+        <div class="hd"><span class="name">Speed</span><span class="chip" id="spd-pc">—</span></div>
+        <div class="spd"><input type="range" id="speed" min="60" max="255" step="5" value="180" aria-label="Speed"><output id="spd-out">180</output></div>
+        <p class="hint">Keyboard: W A S D / arrow keys · Space = stop</p>
+      </section>
+      <section class="card cmini">
+        <div class="gauge">
+          <svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52" fill="none" stroke-width="14"/>
+            <circle class="val" id="cq-arc" cx="60" cy="60" r="52" fill="none" stroke-width="14" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/></svg>
+          <div class="gn"><b id="cq-score">--</b></div>
+        </div>
+        <div><div class="wq-lbl">Water Quality</div><div class="wq-rt" id="cq-rt">--</div></div>
+      </section>
+      <section class="card">
+        <div class="hd"><span class="name">Boat</span><span class="chip" id="c-tilt">—</span></div>
+        <div class="rows">
+          <div class="row"><span>Heading</span><span id="c-hd">--</span></div>
+          <div class="row"><span>Roll / Pitch</span><span id="c-rp">--</span></div>
+          <div class="row"><span>GPS speed</span><span id="c-gs">--</span></div>
+          <div class="row"><span>Nano link</span><span id="c-nano">--</span></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</main>
+
+<footer class="num"><b>AQUA NEXUS</b> · Comprehensive Ocean Monitoring System · uptime <span id="up">--</span></footer>
+<div class="toast" id="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
